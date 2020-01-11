@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import { react2angular } from "react2angular";
-import Divider from "antd/lib/divider";
 
 import EditInPlace from "@/components/EditInPlace";
 import Parameters from "@/components/Parameters";
@@ -28,6 +27,8 @@ import useEmbedDialog from "./hooks/useEmbedDialog";
 import useEditScheduleDialog from "./hooks/useEditScheduleDialog";
 import useEditVisualizationDialog from "./hooks/useEditVisualizationDialog";
 import useDeleteVisualization from "./hooks/useDeleteVisualization";
+
+import "./QueryView.less";
 
 function QueryView(props) {
   const [query, setQuery] = useState(props.query);
@@ -77,8 +78,22 @@ function QueryView(props) {
   return (
     <div className="query-page-wrapper">
       <div className="container">
-        <QueryPageHeader query={query} dataSource={dataSource} onChange={setQuery} selectedVisualization={selectedVisualization} />
-        <div className="query-metadata tiled bg-white p-15">
+        <QueryPageHeader
+          query={query}
+          dataSource={dataSource}
+          onChange={setQuery}
+          selectedVisualization={selectedVisualization}
+          headerExtra={
+            <QueryViewExecuteButton
+              className="m-r-5"
+              shortcut="mod+enter, alt+enter"
+              disabled={!queryFlags.canExecute || isQueryExecuting || areParametersDirty}
+              onClick={doExecuteQuery}>
+              Refresh
+            </QueryViewExecuteButton>
+          }
+        />
+        <div className="m-t-5 m-l-15 m-r-15">
           <EditInPlace
             className="w-100"
             value={query.description}
@@ -89,10 +104,10 @@ function QueryView(props) {
             editorProps={{ autosize: { minRows: 2, maxRows: 4 } }}
             multiline
           />
-          <Divider />
-          <QueryMetadata layout="horizontal" query={query} dataSource={dataSource} onEditSchedule={editSchedule} />
         </div>
-        <div className="query-content tiled bg-white p-15 m-t-15">
+      </div>
+      <div className="query-view-content">
+        <div className="query-results m-t-15">
           {query.hasParameters() && (
             <Parameters
               parameters={parameters}
@@ -125,51 +140,47 @@ function QueryView(props) {
                 onChangeTab={setSelectedVisualization}
                 onAddVisualization={addVisualization}
                 onDeleteVisualization={deleteVisualization}
+                cardStyle
               />
-              <Divider />
-            </>
-          )}
-          <div className="d-flex align-items-center">
-            {queryResultData.status === "done" && (
-              <>
+              <div className="query-results-footer d-flex align-items-center">
+                <span className="m-r-10">
+                  <QueryControlDropdown
+                    query={query}
+                    queryResult={queryResult}
+                    queryExecuting={isQueryExecuting}
+                    showEmbedDialog={openEmbedDialog}
+                    embed={false}
+                    apiKey={query.api_key}
+                    selectedTab={selectedVisualization}
+                    openAddToDashboardForm={openAddToDashboardDialog}
+                  />
+                </span>
                 {queryFlags.canEdit && (
                   <EditVisualizationButton
                     openVisualizationEditor={editVisualization}
                     selectedTab={selectedVisualization}
                   />
                 )}
-                <QueryControlDropdown
-                  query={query}
-                  queryResult={queryResult}
-                  queryExecuting={isQueryExecuting}
-                  showEmbedDialog={openEmbedDialog}
-                  embed={false}
-                  apiKey={query.api_key}
-                  selectedTab={selectedVisualization}
-                  openAddToDashboardForm={openAddToDashboardDialog}
-                />
-                <span className="m-l-10">
+                <span className="m-l-5">
                   <strong>{queryResultData.rows.length}</strong> {pluralize("row", queryResultData.rows.length)}
                 </span>
                 <span className="m-l-10">
                   <strong>{durationHumanize(queryResult.getRuntime())}</strong>
                   <span className="hidden-xs"> runtime</span>
                 </span>
-              </>
-            )}
-            <span className="flex-fill" />
-            {queryResultData.status === "done" && (
-              <span className="m-r-10 hidden-xs">
-                Updated <TimeAgo date={queryResult.query_result.retrieved_at} />
-              </span>
-            )}
-            <QueryViewExecuteButton
-              shortcut="mod+enter, alt+enter"
-              disabled={!queryFlags.canExecute || isQueryExecuting || areParametersDirty}
-              onClick={doExecuteQuery}>
-              Execute
-            </QueryViewExecuteButton>
-          </div>
+                <span className="flex-fill" />
+                <span className="m-r-10 hidden-xs">
+                  Updated{" "}
+                  <strong>
+                    <TimeAgo date={queryResult.query_result.retrieved_at} />
+                  </strong>
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="p-15">
+          <QueryMetadata layout="horizontal" query={query} dataSource={dataSource} onEditSchedule={editSchedule} />
         </div>
       </div>
     </div>
@@ -185,6 +196,7 @@ export default function init(ngModule) {
     "/queries/:queryId": {
       template: '<page-query-view query="$resolve.query"></page-query-view>',
       reloadOnSearch: false,
+      layout: "fixed",
       resolve: {
         query: (Query, $route) => {
           "ngInject";
